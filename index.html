@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocuMind — Read. Ask. Understand.</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --bg-elevated: #16171b;
+    --bg-card: #1c1d22;
+    --fg: #e8e6e1;
+    --fg-muted: #8a8880;
+    --accent: #e8a849;
+    --accent-dim: rgba(232, 168, 73, 0.12);
+    --accent-glow: rgba(232, 168, 73, 0.25);
+    --success: #5cb87a;
+    --border: #2a2b30;
+    --border-light: #33343a;
+    --danger: #e05252;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%; left: -20%;
+    width: 80vw; height: 80vh;
+    background: radial-gradient(ellipse, var(--accent-dim) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -30%; right: -15%;
+    width: 60vw; height: 60vh;
+    background: radial-gradient(ellipse, rgba(92, 184, 122, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+  .upload-zone {
+    border: 2px dashed var(--border-light);
+    border-radius: 16px;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, var(--accent-dim), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.35s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .upload-zone:hover::before, .upload-zone.drag-over::before { opacity: 1; }
+
+  .upload-icon-ring { animation: pulseRing 2.5s ease-in-out infinite; }
+  @keyframes pulseRing {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { box-shadow: 0 0 0 18px transparent; }
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    transition: border-color 0.25s;
+  }
+  .card:hover { border-color: var(--border-light); }
+
+  .answer-section {
+    border-left: 3px solid var(--accent);
+    padding-left: 16px;
+    margin-bottom: 16px;
+    animation: fadeSlideIn 0.4s ease-out both;
+  }
+  .answer-section:nth-child(2) { animation-delay: 0.08s; }
+  .answer-section:nth-child(3) { animation-delay: 0.16s; }
+  .answer-section:nth-child(4) { animation-delay: 0.24s; }
+  .answer-section:nth-child(5) { animation-delay: 0.32s; }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .key-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(232, 168, 73, 0.2);
+    color: var(--accent);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    animation: popIn 0.3s ease-out both;
+    line-height: 1.4;
+  }
+  .key-pill:nth-child(2) { animation-delay: 0.05s; }
+  .key-pill:nth-child(3) { animation-delay: 0.1s; }
+  .key-pill:nth-child(4) { animation-delay: 0.15s; }
+  .key-pill:nth-child(5) { animation-delay: 0.2s; }
+  .key-pill:nth-child(6) { animation-delay: 0.25s; }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .source-quote {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    position: relative;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--fg-muted);
+  }
+  .source-quote::before {
+    content: '\201C';
+    position: absolute;
+    top: 4px; left: 12px;
+    font-size: 2.2rem;
+    color: var(--accent);
+    opacity: 0.3;
+    line-height: 1;
+    font-family: Georgia, serif;
+  }
+  .source-quote p { padding-left: 20px; }
+
+  .confidence-bar-bg {
+    background: var(--bg);
+    border-radius: 100px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .confidence-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(90deg, var(--accent), var(--success));
+  }
+
+  .typing-dots span {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin: 0 3px;
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-8px); opacity: 1; }
+  }
+
+  .chat-bubble-user {
+    background: linear-gradient(135deg, var(--accent), #d4922e);
+    color: #0e0f11;
+    border-radius: 18px 18px 4px 18px;
+    padding: 12px 20px;
+    font-weight: 500;
+    max-width: 75%;
+  }
+  .chat-bubble-system {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px 18px 18px 4px;
+    padding: 12px 20px;
+    max-width: 92%;
+  }
+
+  .file-badge {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.25s;
+  }
+  .file-badge:hover { border-color: var(--accent); }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.15;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 24px;
+    font-size: 0.9rem;
+    z-index: 999;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .question-input {
+    background: var(--bg-elevated);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 22px;
+    color: var(--fg);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .question-input::placeholder { color: var(--fg-muted); }
+  .question-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-dim);
+  }
+
+  .send-btn {
+    background: linear-gradient(135deg, var(--accent), #d4922e);
+    color: #0e0f11;
+    border: none;
+    border-radius: 16px;
+    padding: 16px 24px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .send-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+  .send-btn:active { transform: scale(0.97); }
+  .send-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--fg-muted);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .highlight {
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .particle {
+    position: fixed;
+    width: 3px; height: 3px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    animation: floatParticle linear infinite;
+  }
+  @keyframes floatParticle {
+    0% { opacity: 0; transform: translateY(0) scale(0); }
+    10% { opacity: 0.4; transform: scale(1); }
+    90% { opacity: 0.1; }
+    100% { opacity: 0; transform: translateY(-100vh) scale(0.5); }
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .status-dot.idle { background: var(--fg-muted); }
+  .status-dot.ready { background: var(--success); box-shadow: 0 0 8px rgba(92,184,122,0.5); }
+  .status-dot.processing { background: var(--accent); animation: blink 0.8s infinite; }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .welcome-bubble {
+    background: linear-gradient(135deg, rgba(232,168,73,0.08), rgba(92,184,122,0.05));
+    border: 1px solid rgba(232,168,73,0.15);
+    border-radius: 16px;
+    padding: 20px 24px;
+    max-width: 92%;
+  }
+
+  .quick-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--fg);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.84rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .quick-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  @media (max-width: 768px) {
+    .main-grid { grid-template-columns: 1fr !important; }
+    .chat-bubble-user, .chat-bubble-system, .welcome-bubble { max-width: 95% !important; }
+    .sidebar-panel { position: static !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-pattern" aria-hidden="true"></div>
+<div id="particles" aria-hidden="true"></div>
+
+<div class="toast" id="toast" role="alert">
+  <i class="fa-solid fa-circle-check" style="color: var(--success)"></i>
+  <span id="toastMsg">Document loaded successfully</span>
+</div>
+
+<div style="position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column;">
+
+  <!-- Header -->
+  <header style="border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; background: rgba(14,15,17,0.85); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 50;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="width: 38px; height: 38px; background: linear-gradient(135deg, var(--accent), #d4922e); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+        <i class="fa-solid fa-brain" style="color: #0e0f11; font-size: 1.1rem;"></i>
+      </div>
+      <div>
+        <div style="font-weight: 700; font-size: 1.15rem; letter-spacing: -0.02em;">DocuMind</div>
+        <div style="font-size: 0.72rem; color: var(--fg-muted); letter-spacing: 0.04em;">READ &middot; ASK &middot; UNDERSTAND</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="status-dot idle" id="statusDot"></span>
+      <span style="font-size: 0.82rem; color: var(--fg-muted);" id="statusText">No document loaded</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main style="flex: 1; padding: 28px; max-width: 1320px; margin: 0 auto; width: 100%;">
+    <div class="main-grid" style="display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;">
+
+      <!-- Left Sidebar -->
+      <aside class="sidebar-panel" style="display: flex; flex-direction: column; gap: 20px; position: sticky; top: 90px;">
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone" style="padding: 40px 24px; text-align: center; cursor: pointer;" role="button" tabindex="0" aria-label="Upload a document">
+          <input type="file" id="fileInput" accept=".txt,.pdf,.csv,.json,.md,.html,.xml,.log" style="display:none;">
+          <div class="upload-icon-ring" style="width: 64px; height: 64px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--accent);"></i>
+          </div>
+          <div style="font-weight: 600; font-size: 1rem; margin-bottom: 6px;">Drop your document here</div>
+          <div style="font-size: 0.82rem; color: var(--fg-muted);">or click to browse files</div>
+          <div style="margin-top: 14px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+            <span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 3px 8px; border-radius: 4px; color: var(--fg-muted);">PDF</span>
+            <span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 3px 8px; border-radius: 4px; color: var(--fg-muted);">TXT</span>
+            <span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 3px 8px; border-radius: 4px; color: var(--fg-muted);">CSV</span>
+            <span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 3px 8px; border-radius: 4px; color: var(--fg-muted);">JSON</span>
+            <span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 3px 8px; border-radius: 4px; color: var(--fg-muted);">MD</span>
+          </div>
+        </div>
+
+        <!-- Document Info Card -->
+        <div class="card" id="docInfoCard" style="display: none; padding: 20px;">
+          <div class="section-label">Loaded Document</div>
+          <div class="file-badge" style="margin-bottom: 14px;">
+            <div id="fileIcon" style="width: 42px; height: 42px; border-radius: 10px; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <i class="fa-solid fa-file-lines" style="color: var(--accent);"></i>
+            </div>
+            <div style="min-width: 0; flex: 1;">
+              <div id="fileName" style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">document.pdf</div>
+              <div id="fileMeta" style="font-size: 0.78rem; color: var(--fg-muted); margin-top: 2px;">—</div>
+            </div>
+            <button id="clearDocBtn" style="background: none; border: none; color: var(--fg-muted); cursor: pointer; padding: 6px; border-radius: 6px; transition: color 0.2s;" aria-label="Remove document" title="Remove document">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="background: var(--bg); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em;">Words</div>
+              <div id="wordCount" class="mono" style="font-size: 1.3rem; font-weight: 600; color: var(--accent); margin-top: 2px;">0</div>
+            </div>
+            <div style="background: var(--bg); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em;">Sentences</div>
+              <div id="sentCount" class="mono" style="font-size: 1.3rem; font-weight: 600; color: var(--success); margin-top: 2px;">0</div>
+            </div>
+            <div style="background: var(--bg); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em;">Paragraphs</div>
+              <div id="paraCount" class="mono" style="font-size: 1.3rem; font-weight: 600; color: var(--fg); margin-top: 2px;">0</div>
+            </div>
+            <div style="background: var(--bg); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em;">Read Time</div>
+              <div id="readTime" class="mono" style="font-size: 1.3rem; font-weight: 600; color: var(--fg); margin-top: 2px;">0m</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested Questions -->
+        <div class="card" id="quickQuestionsCard" style="display: none; padding: 20px;">
+          <div class="section-label">Suggested Questions</div>
+          <div id="quickQuestions" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"></div>
+        </div>
+
+        <!-- Document Preview -->
+        <div class="card" id="previewCard" style="display: none; padding: 20px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div class="section-label" style="margin-bottom: 0;">Document Preview</div>
+            <button id="togglePreview" style="background: none; border: none; color: var(--fg-muted); cursor: pointer; font-size: 0.78rem; font-family: 'Space Grotesk', sans-serif; display: flex; align-items: center; gap: 4px;" aria-label="Toggle preview">
+              <span id="toggleLabel">Show</span>
+              <i class="fa-solid fa-chevron-down" id="toggleIcon" style="transition: transform 0.3s; font-size: 0.65rem;"></i>
+            </button>
+          </div>
+          <div id="previewContent" style="display: none; max-height: 300px; overflow-y: auto; font-size: 0.82rem; line-height: 1.7; color: var(--fg-muted); background: var(--bg); border-radius: 10px; padding: 14px; white-space: pre-wrap; word-break: break-word;"></div>
+        </div>
+      </aside>
+
+      <!-- Right Panel: Q&A -->
+      <section style="display: flex; flex-direction: column; gap: 20px; min-height: 70vh;">
+
+        <!-- Empty state -->
+        <div id="emptyState" class="card" style="padding: 60px 40px; text-align: center; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div style="width: 80px; height: 80px; border-radius: 20px; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <i class="fa-solid fa-comments" style="font-size: 2rem; color: var(--accent); opacity: 0.7;"></i>
+          </div>
+          <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 8px;">Ask anything about your document</div>
+          <div style="color: var(--fg-muted); font-size: 0.92rem; max-width: 420px; line-height: 1.6;">Upload a document first, then ask questions. DocuMind reads the entire document and provides structured, source-backed answers.</div>
+        </div>
+
+        <!-- Chat Area (hidden by default, shown via JS) -->
+        <div id="chatArea" style="display: none; flex: 1; flex-direction: column; gap: 16px;">
+          <div id="chatMessages" style="flex: 1; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px; min-height: 200px; max-height: calc(100vh - 240px);"></div>
+        </div>
+
+        <!-- Question Input -->
+        <div style="display: flex; gap: 12px; align-items: flex-end; padding-top: 8px;">
+          <div style="flex: 1;">
+            <input type="text" class="question-input" id="questionInput" placeholder="Ask a question about your document..." disabled aria-label="Type your question">
+          </div>
+          <button class="send-btn" id="sendBtn" disabled aria-label="Send question">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Ask</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ================================================================
+   PDF.js worker
+   ================================================================ */
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ================================================================
+   Application State
+   ================================================================ */
+let documentText = '';
+let documentSentences = [];
+let documentParagraphs = [];
+let documentName = '';
+let isProcessing = false;
+let previewOpen = false;
+
+/* ================================================================
+   DOM References
+   ================================================================ */
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const docInfoCard = document.getElementById('docInfoCard');
+const quickQuestionsCard = document.getElementById('quickQuestionsCard');
+const previewCard = document.getElementById('previewCard');
+const emptyState = document.getElementById('emptyState');
+const chatArea = document.getElementById('chatArea');
+const chatMessages = document.getElementById('chatMessages');
+const questionInput = document.getElementById('questionInput');
+const sendBtn = document.getElementById('sendBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const toastEl = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+
+/* ================================================================
+   Floating Particles
+   ================================================================ */
+(function initParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.bottom = '-10px';
+    p.style.animationDuration = (8 + Math.random() * 14) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    const size = (2 + Math.random() * 3) + 'px';
+    p.style.width = size;
+    p.style.height = size;
+    container.appendChild(p);
+  }
+})();
+
+/* ================================================================
+   Toast Notification
+   ================================================================ */
+let toastTimer = null;
+function showToast(msg, icon, color) {
+  icon = icon || 'fa-circle-check';
+  color = color || 'var(--success)';
+  toastMsg.textContent = msg;
+  toastEl.querySelector('i').className = 'fa-solid ' + icon;
+  toastEl.querySelector('i').style.color = color;
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 3200);
+}
+
+/* ================================================================
+   Status Helper
+   ================================================================ */
+function setStatus(state, text) {
+  statusDot.className = 'status-dot ' + state;
+  statusText.textContent = text;
+}
+
+/* ================================================================
+   File Upload — Click, Keyboard, Drag & Drop
+   ================================================================ */
+uploadZone.addEventListener('click', function() { fileInput.click(); });
+uploadZone.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+});
+uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('drag-over'); });
+uploadZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', function(e) {
+  if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+document.getElementById('clearDocBtn').addEventListener('click', clearDocument);
+
+/* ================================================================
+   Handle Uploaded File
+   ================================================================ */
+async function handleFile(file) {
+  var ext = file.name.split('.').pop().toLowerCase();
+  var supported = ['txt', 'pdf', 'csv', 'json', 'md', 'html', 'xml', 'log'];
+  if (supported.indexOf(ext) === -1) {
+    showToast('Unsupported format. Use PDF, TXT, CSV, JSON, or MD.', 'fa-circle-xmark', 'var(--danger)');
+    return;
+  }
+
+  setStatus('processing', 'Reading document...');
+
+  try {
+    var text = '';
+    if (ext === 'pdf') {
+      text = await extractPDFText(file);
+    } else {
+      text = await file.text();
+    }
+
+    if (!text || text.trim().length < 10) {
+      showToast('Document appears empty or unreadable.', 'fa-circle-xmark', 'var(--danger)');
+      setStatus('idle', 'No document loaded');
+      return;
+    }
+
+    documentText = text.trim();
+    documentName = file.name;
+    processDocument();
+    updateDocInfo(file, ext);
+    generateQuickQuestions();
+
+    /* Show panels, hide empty state */
+    docInfoCard.style.display = 'block';
+    quickQuestionsCard.style.display = 'block';
+    previewCard.style.display = 'block';
+    emptyState.style.display = 'none';
+    chatArea.style.display = 'flex';
+    chatMessages.innerHTML = '';
+
+    /* Show welcome message */
+    addWelcomeBubble();
+
+    /* Enable input */
+    questionInput.disabled = false;
+    sendBtn.disabled = false;
+    questionInput.focus();
+
+    setStatus('ready', 'Document ready — ask a question');
+    showToast('Document loaded — ' + documentSentences.length + ' sentences indexed');
+
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to read document: ' + err.message, 'fa-circle-xmark', 'var(--danger)');
+    setStatus('idle', 'No document loaded');
+  }
+}
+
+/* ================================================================
+   PDF Text Extraction
+   ================================================================ */
+async function extractPDFText(file) {
+  var arrayBuffer = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  var fullText = '';
+  for (var i = 1; i <= pdf.numPages; i++) {
+    var page = await pdf.getPage(i);
+    var content = await page.getTextContent();
+    var pageText = content.items.map(function(item) { return item.str; }).join(' ');
+    fullText += pageText + '\n\n';
+  }
+  return fullText;
+}
+
+/* ================================================================
+   Process Document into Sentences & Paragraphs
+   ================================================================ */
+function processDocument() {
+  /* Split into paragraphs by blank lines */
+  documentParagraphs = documentText
+    .split(/\n\s*\n/)
+    .map(function(p) { return p.replace(/\n/g, ' ').trim(); })
+    .filter(function(p) { return p.length > 10; });
+
+  /* Fallback: if few paragraphs, split by single newlines */
+  if (documentParagraphs.length < 2) {
+    documentParagraphs = documentText
+      .split(/\n/)
+      .map(function(p) { return p.trim(); })
+      .filter(function(p) { return p.length > 10; });
+  }
+
+  /* Split paragraphs into sentences */
+  documentSentences = [];
+  var sentenceRegex = /[^.!?]+[.!?]+/g;
+  documentParagraphs.forEach(function(para) {
+    var matches = para.match(sentenceRegex);
+    if (matches) {
+      matches.forEach(function(s) {
+        var cleaned = s.trim();
+        if (cleaned.length > 8) documentSentences.push(cleaned);
+      });
+    } else if (para.length > 8) {
+      documentSentences.push(para);
+    }
+  });
+}
+
+/* ================================================================
+   Update Document Info Panel
+   ================================================================ */
+function updateDocInfo(file, ext) {
+  document.getElementById('fileName').textContent = file.name;
+  var sizeKB = (file.size / 1024).toFixed(1);
+  var sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
+  document.getElementById('fileMeta').textContent = ext.toUpperCase() + ' — ' + sizeStr;
+
+  var iconMap = {
+    pdf: 'fa-file-pdf', txt: 'fa-file-lines', csv: 'fa-file-csv',
+    json: 'fa-file-code', md: 'fa-file-lines', html: 'fa-file-code',
+    xml: 'fa-file-code', log: 'fa-file-lines'
+  };
+  document.querySelector('#fileIcon i').className = 'fa-solid ' + (iconMap[ext] || 'fa-file-lines');
+
+  var words = documentText.split(/\s+/).filter(function(w) { return w.length > 0; });
+  document.getElementById('wordCount').textContent = words.length.toLocaleString();
+  document.getElementById('sentCount').textContent = documentSentences.length.toLocaleString();
+  document.getElementById('paraCount').textContent = documentParagraphs.length.toLocaleString();
+  var readMin = Math.max(1, Math.ceil(words.length / 220));
+  document.getElementById('readTime').textContent = readMin + 'm';
+
+  document.getElementById('previewContent').textContent = documentText.substring(0, 5000) + (documentText.length > 5000 ? '\n\n... [truncated]' : '');
+}
+
+/* ================================================================
+   Toggle Document Preview
+   ================================================================ */
+document.getElementById('togglePreview').addEventListener('click', function() {
+  previewOpen = !previewOpen;
+  document.getElementById('previewContent').style.display = previewOpen ? 'block' : 'none';
+  document.getElementById('toggleLabel').textContent = previewOpen ? 'Hide' : 'Show';
+  document.getElementById('toggleIcon').style.transform = previewOpen ? 'rotate(180deg)' : 'rotate(0)';
+});
+
+/* ================================================================
+   Clear Document
+   ================================================================ */
+function clearDocument() {
+  documentText = '';
+  documentSentences = [];
+  documentParagraphs = [];
+  documentName = '';
+  fileInput.value = '';
+
+  docInfoCard.style.display = 'none';
+  quickQuestionsCard.style.display = 'none';
+  previewCard.style.display = 'none';
+  emptyState.style.display = 'flex';
+  chatArea.style.display = 'none';
+  chatMessages.innerHTML = '';
+
+  questionInput.disabled = true;
+  sendBtn.disabled = true;
+  questionInput.value = '';
+  previewOpen = false;
+  document.getElementById('previewContent').style.display = 'none';
+  document.getElementById('toggleLabel').textContent = 'Show';
+  document.getElementById('toggleIcon').style.transform = 'rotate(0)';
+
+  setStatus('idle', 'No document loaded');
+  showToast('Document removed', 'fa-trash-can', 'var(--fg-muted)');
+}
+
+/* ================================================================
+   Generate Suggested Questions
+   ================================================================ */
+function generateQuickQuestions() {
+  var container = document.getElementById('quickQuestions');
+  container.innerHTML = '';
+
+  var suggestions = [
+    { icon: 'fa-list-check', text: 'What are the main topics covered?' },
+    { icon: 'fa-lightbulb', text: 'What are the key points or takeaways?' },
+    { icon: 'fa-magnifying-glass', text: 'Summarize the document briefly' },
+    { icon: 'fa-bookmark', text: 'What important details are mentioned?' }
+  ];
+
+  suggestions.forEach(function(s) {
+    var btn = document.createElement('button');
+    btn.className = 'quick-btn';
+    btn.innerHTML = '<i class="fa-solid ' + s.icon + '" style="color: var(--accent); font-size: 0.8rem; width: 16px; text-align: center;"></i>' + s.text;
+    btn.addEventListener('click', function() {
+      questionInput.value = s.text;
+      askQuestion();
+    });
+    container.appendChild(btn);
+  });
+}
+
+/* ================================================================
+   Welcome Bubble on Document Load
+   ================================================================ */
+function addWelcomeBubble() {
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display: flex; justify-content: flex-start;';
+
+  var bubble = document.createElement('div');
+  bubble.className = 'welcome-bubble';
+
+  var words = documentText.split(/\s+/).filter(function(w) { return w.length > 0; }).length;
+  bubble.innerHTML =
+    '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">' +
+      '<i class="fa-solid fa-circle-check" style="color: var(--success);"></i>' +
+      '<span style="font-weight: 600; font-size: 0.95rem;">Document indexed successfully</span>' +
+    '</div>' +
+    '<div style="font-size: 0.88rem; color: var(--fg-muted); line-height: 1.65;">' +
+      'I\'ve read <strong style="color: var(--fg);">' + escapeHTML(documentName) + '</strong> — ' +
+      words.toLocaleString() + ' words across ' + documentParagraphs.length + ' paragraphs. ' +
+      'Ask me anything and I\'ll find relevant passages, extract key points, and cite sources directly from the text.' +
+    '</div>';
+
+  wrapper.appendChild(bubble);
+  chatMessages.appendChild(wrapper);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/* ================================================================
+   Send Question
+   ================================================================ */
+sendBtn.addEventListener('click', askQuestion);
+questionInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
+});
+questionInput.addEventListener('focus', function() {
+  if (questionInput.disabled) {
+    showToast('Please upload a document first', 'fa-circle-info', 'var(--accent)');
+  }
+});
+
+async function askQuestion() {
+  var question = questionInput.value.trim();
+  if (!question || !documentText || isProcessing) return;
+
+  isProcessing = true;
+  sendBtn.disabled = true;
+  questionInput.value = '';
+  setStatus('processing', 'Analyzing document...');
+
+  /* Add user bubble */
+  addChatBubble('user', question);
+
+  /* Show typing indicator */
+  var typingId = addTypingIndicator();
+
+  /* Brief processing delay for natural feel */
+  await new Promise(function(r) { setTimeout(r, 500 + Math.random() * 500); });
+
+  /* Generate structured answer */
+  var answer = generateStructuredAnswer(question);
+
+  /* Remove typing indicator */
+  removeTypingIndicator(typingId);
+
+  /* Render answer */
+  addAnswerBubble(answer);
+
+  isProcessing = false;
+  sendBtn.disabled = false;
+  setStatus('ready', 'Document ready — ask a question');
+  questionInput.focus();
+}
+
+/* ================================================================
+   Chat UI Helpers
+   ================================================================ */
+function addChatBubble(type, content) {
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display: flex; ' + (type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;');
+  var bubble = document.createElement('div');
+  bubble.className = type === 'user' ? 'chat-bubble-user' : 'chat-bubble-system';
+  bubble.textContent = content;
+  wrapper.appendChild(bubble);
+  chatMessages.appendChild(wrapper);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addTypingIndicator() {
+  var wrapper = document.createElement('div');
+  var id = 'typing-' + Date.now();
+  wrapper.id = id;
+  wrapper.style.cssText = 'display: flex; justify-content: flex-start;';
+  var bubble = document.createElement('div');
+  bubble.className = 'chat-bubble-system';
+  bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  wrapper.appendChild(bubble);
+  chatMessages.appendChild(wrapper);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return id;
+}
+
+function removeTypingIndicator(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+/* ================================================================
+   Escape HTML
+   ================================================================ */
+function escapeHTML(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ================================================================
+   Escape Regex Special Characters
+   ================================================================ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/* ================================================================
+   CORE: Generate Structured Answer
+   ================================================================ */
+function generateStructuredAnswer(question) {
+  var qLower = question.toLowerCase();
+
+  /* 1. Find relevant passages */
+  var result = findRelevantPassages(question);
+  var passages = result.passages;
+  var score = result.score;
+  var matchedKeywords = result.matchedKeywords;
+
+  /* 2. Detect question type */
+  var qType = detectQuestionType(question);
+
+  /* 3. Build structured response */
+  var summary = '';
+  var keyPoints = [];
+  var details = '';
+
+  if (qType === 'summary') {
+    summary = buildSummary(passages);
+    keyPoints = extractKeyPoints(passages);
+    details = buildDetailedAnswer(passages, matchedKeywords);
+  } else if (qType === 'keypoints') {
+    summary = 'Based on the document, here are the key points found:';
+    keyPoints = extractKeyPoints(passages);
+    details = buildDetailedAnswer(passages, matchedKeywords);
+  } else if (qType === 'topics') {
+    summary = 'The document covers the following main topics:';
+    keyPoints = extractTopics(passages);
+    details = buildDetailedAnswer(passages, matchedKeywords);
+  } else {
+    summary = buildDirectAnswer(passages, question);
+    keyPoints = extractKeyPoints(passages);
+    details = buildDetailedAnswer(passages, matchedKeywords);
+  }
+
+  var confidence = Math.min(95, Math.round(score * 100));
+
+  return {
+    summary: summary,
+    keyPoints: keyPoints,
+    details: details,
+    sources: passages.slice(0, 3).map(function(p) { return p.text; }),
+    confidence: confidence,
+    matchedKeywords: matchedKeywords,
+    passageCount: passages.length
+  };
+}
+
+/* ================================================================
+   Extract Keywords from Question
+   ================================================================ */
+function extractQuestionKeywords(question) {
+  var stopWords = {
+    'what':1,'where':1,'when':1,'who':1,'which':1,'whom':1,'how':1,'why':1,
+    'is':1,'are':1,'was':1,'were':1,'be':1,'been':1,'being':1,
+    'do':1,'does':1,'did':1,'will':1,'would':1,'could':1,'should':1,'can':1,'may':1,'might':1,'shall':1,
+    'the':1,'a':1,'an':1,'this':1,'that':1,'these':1,'those':1,
+    'in':1,'on':1,'at':1,'to':1,'for':1,'of':1,'with':1,'by':1,'from':1,'about':1,'into':1,'through':1,
+    'and':1,'or':1,'but':1,'not':1,'no':1,'nor':1,'so':1,'yet':1,
+    'if':1,'then':1,'than':1,'too':1,'very':1,'just':1,'also':1,
+    'me':1,'my':1,'we':1,'our':1,'you':1,'your':1,'it':1,'its':1,
+    'tell':1,'please':1,'give':1,'describe':1,'explain':1,'list':1,'show':1,'find':1,
+    'main':1,'important':1,'key':1,'covered':1,'mentioned':1,'discussed':1,
+    'document':1,'text':1,'file':1,'paper':1,'article':1,'section':1,'paragraph':1,
+    'there':1,'their':1,'they':1,'them':1,'has':1,'have':1,'had':1
+  };
+
+  var words = question.toLowerCase().replace(/[?!.;,:"']/g, '').split(/\s+/).filter(function(w) {
+    return !stopWords[w] && w.length > 2;
+  });
+
+  var bigrams = [];
+  for (var i = 0; i < words.length - 1; i++) {
+    bigrams.push(words[i] + ' ' + words[i + 1]);
+  }
+
+  return { words: words, bigrams: bigrams };
+}
+
+/* ================================================================
+   Find Relevant Passages via Keyword Scoring
+   ================================================================ */
+function findRelevantPassages(question) {
+  var extracted = extractQuestionKeywords(question);
+  var allTerms = extracted.words.concat(extracted.bigrams);
+  var matchedKeywords = [];
+
+  /* Score each sentence */
+  var scored = documentSentences.map(function(sent, idx) {
+    var sentLower = sent.toLowerCase();
+    var sc = 0;
+
+    allTerms.forEach(function(term) {
+      var regex = new RegExp(escapeRegex(term), 'gi');
+      var matches = sentLower.match(regex);
+      if (matches) {
+        sc += matches.length * (term.indexOf(' ') !== -1 ? 3 : 1);
+        if (matchedKeywords.indexOf(term) === -1) matchedKeywords.push(term);
+      }
+    });
+
+    /* Length bonus: prefer substantive sentences */
+    var wordCount = sent.split(/\s+/).length;
+    if (wordCount > 5 && wordCount < 50) sc *= 1.15;
+
+    return { text: sent, score: sc, index: idx };
+  });
+
+  /* Sort by score descending */
+  scored.sort(function(a, b) { return b.score - a.score; });
+
+  /* Take top scoring passages */
+  var passages = scored.filter(function(p) { return p.score > 0; }).slice(0, 12);
+
+  /* Fallback: if no keyword matches, return first sentences */
+  if (passages.length === 0) {
+    return {
+      passages: documentSentences.slice(0, 5).map(function(s, i) { return { text: s, score: 0.1, index: i }; }),
+      score: 0.1,
+      matchedKeywords: []
+    };
+  }
+
+  var maxScore = Math.max(1, passages[0].score);
+  var totalScore = 0;
+  var count = Math.min(passages.length, 8);
+  for (var i = 0; i < count; i++) totalScore += passages[i].score;
+  var normalizedScore = Math.min(1, totalScore / (maxScore * count));
+
+  return { passages: passages, score: normalizedScore, matchedKeywords: matchedKeywords };
+}
+
+/* ================================================================
+   Detect Question Type
+   ================================================================ */
+function detectQuestionType(question) {
+  var q = question.toLowerCase();
+  if (/summar|overview|brief|tldr|tl;dr|gist/.test(q)) return 'summary';
+  if (/list|key.?point|takeaway|highlight|main.?point/.test(q)) return 'keypoints';
+  if (/topic|subject|theme|cover|about|discuss/.test(q)) return 'topics';
+  return 'direct';
+}
+
+/* ================================================================
+   Build Summary from Top Passages
+   ================================================================ */
+function buildSummary(passages) {
+  if (passages.length === 0) return 'No relevant information found in the document for this question.';
+
+  var topPassages = passages.slice(0, Math.min(4, passages.length));
+  var summary = topPassages[0].text;
+
+  if (topPassages.length > 1) {
+    var rest = topPassages.slice(1).map(function(p) {
+      var t = p.text;
+      return t.charAt(0).toLowerCase() + t.slice(1);
+    });
+    summary += ' Additionally, ' + rest.join('. ');
+  }
+
+  if (!/[.!?]$/.test(summary)) summary += '.';
+  return summary;
+}
+
+/* ================================================================
+   Build Direct Answer
+   ================================================================ */
+function buildDirectAnswer(passages, question) {
+  if (passages.length === 0) return 'The document does not contain information directly relevant to this question. Try rephrasing or using different keywords.';
+
+  var topPassages = passages.slice(0, Math.min(5, passages.length));
+  var answer = 'According to the document: ' + topPassages[0].text;
+
+  if (topPassages.length > 1) {
+    var rest = topPassages.slice(1).map(function(p) {
+      var t = p.text;
+      return t.charAt(0).toLowerCase() + t.slice(1);
+    });
+    answer += ' Furthermore, ' + rest.join('. ');
+  }
+
+  if (!/[.!?]$/.test(answer)) answer += '.';
+  return answer;
+}
+
+/* ================================================================
+   Extract Key Points
+   ================================================================ */
+function extractKeyPoints(passages) {
+  var points = [];
+  var seen = {};
+
+  for (var i = 0; i < Math.min(6, passages.length); i++) {
+    var point = passages[i].text.trim();
+    /* Truncate long sentences */
+    var words = point.split(/\s+/);
+    if (words.length > 22) {
+      point = words.slice(0, 20).join(' ') + '...';
+    }
+    /* Deduplicate by first 40 chars */
+    var key = point.substring(0, 40).toLowerCase();
+    if (!seen[key] && point.length > 10) {
+      seen[key] = true;
+      points.push(point);
+    }
+  }
+
+  return points.slice(0, 5);
+}
+
+/* ================================================================
+   Extract Topics
+   ================================================================ */
+function extractTopics(passages) {
+  var topics = [];
+  var seen = {};
+
+  for (var i = 0; i < Math.min(8, passages.length); i++) {
+    var words = passages[i].text.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 3; });
+    if (words.length >= 2) {
+      var topic = words.slice(0, Math.min(5, words.length)).join(' ');
+      var key = topic.toLowerCase().substring(0, 30);
+      if (!seen[key]) {
+        seen[key] = true;
+        topics.push(topic.charAt(0).toUpperCase() + topic.slice(1));
+      }
+    }
+  }
+
+  return topics.slice(0, 6);
+}
+
+/* ================================================================
+   Build Detailed Answer with Keyword Highlighting
+   ================================================================ */
+function buildDetailedAnswer(passages, matchedKeywords) {
+  if (passages.length <= 1) return '';
+
+  var detailPassages = passages.slice(1, Math.min(5, passages.length));
+  if (detailPassages.length === 0) return '';
+
+  var parts = detailPassages.map(function(p) {
+    var text = p.text;
+    /* Highlight matched single-word keywords */
+    matchedKeywords.forEach(function(kw) {
+      if (kw.indexOf(' ') !== -1) return; /* Skip bigrams for readability */
+      var regex = new RegExp('(' + escapeRegex(kw) + ')', 'gi');
+      text = text.replace(regex, '<span class="highlight">$1</span>');
+    });
+    return text;
+  });
+
+  var detail = parts.join(' ');
+  if (!/[.!?]$/.test(detail)) detail += '.';
+  return detail;
+}
+
+/* ================================================================
+   Render Structured Answer Bubble
+   ================================================================ */
+function addAnswerBubble(answer) {
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display: flex; justify-content: flex-start;';
+
+  var bubble = document.createElement('div');
+  bubble.className = 'chat-bubble-system';
+  bubble.style.cssText = 'padding: 24px; max-width: 95%;';
+
+  var html = '';
+
+  /* === Answer Section === */
+  html += '<div class="answer-section">';
+  html += '<div class="section-label">Answer</div>';
+  html += '<div style="font-size: 0.95rem; line-height: 1.7; color: var(--fg);">' + escapeHTML(answer.summary) + '</div>';
+  html += '</div>';
+
+  /* === Key Points Section === */
+  if (answer.keyPoints.length > 0) {
+    html += '<div class="answer-section">';
+    html += '<div class="section-label">Key Points</div>';
+    html += '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">';
+    answer.keyPoints.forEach(function(point) {
+      html += '<div class="key-pill"><i class="fa-solid fa-bolt" style="font-size: 0.65rem;"></i>' + escapeHTML(point) + '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  /* === Details Section === */
+  if (answer.details) {
+    html += '<div class="answer-section">';
+    html += '<div class="section-label">Details</div>';
+    html += '<div style="font-size: 0.88rem; line-height: 1.75; color: var(--fg-muted);">' + answer.details + '</div>';
+    html += '</div>';
+  }
+
+  /* === Source Passages Section === */
+  if (answer.sources.length > 0) {
+    html += '<div class="answer-section">';
+    html += '<div class="section-label">Source Passages</div>';
+    html += '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">';
+    answer.sources.forEach(function(src) {
+      var truncated = src.length > 220 ? src.substring(0, 220) + '...' : src;
+      html += '<div class="source-quote"><p>' + escapeHTML(truncated) + '</p></div>';
+    });
+    html += '</div></div>';
+  }
+
+  /* === Footer: Confidence + Matched Keywords + Passages Analyzed === */
+  html += '<div style="display: flex; align-items: center; gap: 16px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap;">';
+
+  /* Confidence bar */
+  html += '<div style="flex: 1; min-width: 140px;">';
+  html += '<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">';
+  html += '<span style="font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em;">Relevance</span>';
+  html += '<span class="mono" style="font-size: 0.75rem; color: var(--accent);">' + answer.confidence + '%</span>';
+  html += '</div>';
+  html += '<div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: 0%;" data-target="' + answer.confidence + '"></div></div>';
+  html += '</div>';
+
+  /* Matched keywords */
+  if (answer.matchedKeywords.length > 0) {
+    html += '<div style="display: flex; gap: 5px; flex-wrap: wrap;">';
+    html += '<span style="font-size: 0.68rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; align-self: center;">Matched:</span>';
+    answer.matchedKeywords.slice(0, 6).forEach(function(kw) {
+      html += '<span class="mono" style="font-size: 0.68rem; background: var(--bg); padding: 2px 8px; border-radius: 4px; color: var(--fg-muted);">' + escapeHTML(kw) + '</span>';
+    });
+    html += '</div>';
+  }
+
+  /* Passage count */
+  html += '<div style="font-size: 0.72rem; color: var(--fg-muted);">' + answer.passageCount + ' passages analyzed</div>';
+  html += '</div>';
+
+  bubble.innerHTML = html;
+  wrapper.appendChild(bubble);
+  chatMessages.appendChild(wrapper);
+
+  /* Animate confidence bar after render */
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      var bar = bubble.querySelector('.confidence-bar-fill');
+      if (bar) bar.style.width = bar.dataset.target + '%';
+    });
+  });
+
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+</script>
+</body>
+</html>
